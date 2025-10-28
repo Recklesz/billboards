@@ -7,6 +7,9 @@ from reportlab.lib import colors
 from reportlab.lib.units import mm
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import portrait
+from reportlab.lib.utils import ImageReader
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
 from PIL import Image
 import os
 import json
@@ -36,6 +39,99 @@ SPECS = {
         "deliver_as_pdf_with_crop_marks_and_bleed": True
     }
 }
+
+
+BRAND_COLORS = {
+    "background": colors.HexColor("#F8FAFC"),
+    "headline_text": colors.HexColor("#0E2E3E"),
+    "accent_primary": colors.HexColor("#37BCD9"),
+    "accent_light": colors.HexColor("#8EE6F7"),
+    "accent_muted": colors.HexColor("#DDF2F8"),
+    "accent_dark": colors.HexColor("#197FA1"),
+}
+
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+LOGO_PATH = os.path.join(BASE_DIR, "assets", "skylar-clean-logo.png")
+UBUNTU_BOLD_PATH = os.path.join(BASE_DIR, "assets", "fonts", "Ubuntu-Bold.ttf")
+
+
+def get_headline_font_name():
+    """Register Ubuntu Bold if available and return the preferred font name."""
+
+    preferred_font = "Ubuntu-Bold"
+    if preferred_font in pdfmetrics.getRegisteredFontNames():
+        return preferred_font
+
+    if os.path.exists(UBUNTU_BOLD_PATH):
+        try:
+            pdfmetrics.registerFont(TTFont(preferred_font, UBUNTU_BOLD_PATH))
+            return preferred_font
+        except Exception as exc:  # pragma: no cover - defensive
+            print(f"⚠ Could not register Ubuntu font: {exc}. Falling back to Helvetica-Bold.")
+
+    return "Helvetica-Bold"
+
+
+def fit_text_size(text, font_name, max_width, starting_size=220, minimum_size=48):
+    """Reduce font size until the string fits within max_width (points)."""
+
+    font_size = starting_size
+    while font_size > minimum_size:
+        text_width = pdfmetrics.stringWidth(text, font_name, font_size)
+        if text_width <= max_width:
+            break
+        font_size -= 1
+    return font_size
+
+
+def fit_multiline_font_size(lines, font_name, max_width, starting_size=220, minimum_size=48):
+    """Reduce font size until all lines fit within max_width."""
+
+    font_size = starting_size
+    while font_size > minimum_size:
+        widths = [pdfmetrics.stringWidth(line, font_name, font_size) for line in lines]
+        if max(widths) <= max_width:
+            break
+        font_size -= 1
+    return font_size
+
+
+def draw_centered_string(canvas_obj, text, font_name, font_size, center_x, baseline_y, fill_color):
+    """Draw a centred string with the given styling."""
+
+    canvas_obj.setFillColor(fill_color)
+    canvas_obj.setFont(font_name, font_size)
+    canvas_obj.drawCentredString(center_x, baseline_y, text)
+
+
+def draw_backwall_background(canvas_obj, graphic):
+    """Render branded background composition for the backwall - clean and elegant."""
+
+    safe_origin_x = graphic.bleed + graphic.safe_inset
+    safe_origin_y = graphic.bleed + graphic.safe_inset
+    safe_width = graphic.trim_width - (2 * graphic.safe_inset)
+    safe_height = graphic.trim_height - (2 * graphic.safe_inset)
+
+    graphic.draw_background(BRAND_COLORS["background"])
+
+    # Large elegant curved shape on right side
+    canvas_obj.saveState()
+    canvas_obj.setFillColor(BRAND_COLORS["accent_light"])
+    canvas_obj.circle(graphic.doc_width + (150 * mm), safe_origin_y + safe_height * 0.65, 420 * mm, fill=1, stroke=0)
+    canvas_obj.restoreState()
+
+    # Complementary curved accent in upper area
+    canvas_obj.saveState()
+    canvas_obj.setFillColor(BRAND_COLORS["accent_muted"])
+    canvas_obj.circle(graphic.doc_width - (300 * mm), graphic.doc_height + (80 * mm), 380 * mm, fill=1, stroke=0)
+    canvas_obj.restoreState()
+
+    # Subtle accent shape in lower left for balance
+    canvas_obj.saveState()
+    canvas_obj.setFillColor(BRAND_COLORS["accent_primary"])
+    canvas_obj.circle(-100 * mm, safe_origin_y + (150 * mm), 200 * mm, fill=1, stroke=0)
+    canvas_obj.restoreState()
 
 
 class ExhibitGraphic:
@@ -210,13 +306,13 @@ def create_sample_backwall(output_dir="output", show_guides=True):
     graphic = BackwallGraphic()
     c = graphic.create_canvas(filename)
 
-    # Background (extends to bleed)
-    graphic.draw_background(colors.white)
+    # Background composition
+    draw_backwall_background(c, graphic)
 
-    # Example: Add a gradient or colored background
-    # For demo purposes, let's add a light blue background
-    c.setFillColor(colors.Color(0.9, 0.95, 1))  # Light blue
-    c.rect(0, 0, graphic.doc_width, graphic.doc_height, fill=1, stroke=0)
+    safe_origin_x = graphic.bleed + graphic.safe_inset
+    safe_origin_y = graphic.bleed + graphic.safe_inset
+    safe_width = graphic.trim_width - (2 * graphic.safe_inset)
+    safe_height = graphic.trim_height - (2 * graphic.safe_inset)
 
     # Add crop marks
     graphic.draw_crop_marks()
@@ -225,29 +321,101 @@ def create_sample_backwall(output_dir="output", show_guides=True):
     graphic.draw_guides(show_guides)
     graphic.draw_no_text_zone_guide(show_guides)
 
-    # Example content in safe area
-    c.setFillColor(colors.Color(0, 0, 0.5))  # Dark blue
-    c.setFont("Helvetica-Bold", 72)
+    # Headline font handling - MUCH LARGER for dominance
+    headline_font = get_headline_font_name()
+    headline_lines = ["AI ROLE PLAYS", "FOR SALES TEAMS"]
+    max_headline_width = safe_width * 0.92
+    headline_font_size = fit_multiline_font_size(headline_lines, headline_font, max_headline_width, starting_size=300, minimum_size=80)
 
-    # Position text in safe area (accounting for bleed)
-    text_x = graphic.bleed + graphic.safe_inset + (50 * mm)
-    text_y = graphic.doc_height - graphic.bleed - graphic.safe_inset - (100 * mm)
+    ascent, descent = pdfmetrics.getAscentDescent(headline_font, headline_font_size)
+    line_height = ascent - descent
+    baseline_gap = line_height * 1.1
+    block_height = line_height + baseline_gap * (len(headline_lines) - 1)
 
-    # Note: In production, text should be converted to outlines
-    c.drawString(text_x, text_y, "YOUR BRAND")
+    headline_center_x = graphic.doc_width / 2
+    headline_center_y = safe_origin_y + safe_height * 0.58
 
-    # Add info text
-    c.setFont("Helvetica", 24)
-    c.drawString(text_x, text_y - (40 * mm), "Backwall 100 x 217 cm")
+    # Framed headline panel for contrast - larger padding for prominence
+    plate_padding_x = 100 * mm
+    plate_padding_y = 110 * mm
+    max_line_width = max(pdfmetrics.stringWidth(line, headline_font, headline_font_size) for line in headline_lines)
+    plate_width = max_line_width + (2 * plate_padding_x)
+    plate_height = block_height + (2 * plate_padding_y)
+    plate_x = headline_center_x - (plate_width / 2)
+    plate_y = headline_center_y - (plate_height / 2)
 
-    # Draw a sample logo placeholder in safe area
-    c.setStrokeColor(colors.Color(0, 0, 0.5))
-    c.setLineWidth(2)
-    logo_x = text_x
-    logo_y = graphic.bleed + graphic.safe_inset + (100 * mm)
-    c.rect(logo_x, logo_y, 200 * mm, 100 * mm, fill=0, stroke=1)
-    c.setFont("Helvetica", 18)
-    c.drawString(logo_x + (70 * mm), logo_y + (45 * mm), "LOGO AREA")
+    # Ensure panel sits above no-text zone
+    min_plate_bottom = graphic.bleed + graphic.no_text_zone["height"] + (40 * mm)
+    if plate_y < min_plate_bottom:
+        shift = min_plate_bottom - plate_y
+        plate_y += shift
+        headline_center_y += shift
+
+    c.setFillColor(colors.white)
+    c.roundRect(plate_x, plate_y, plate_width, plate_height, 60 * mm, fill=1, stroke=0)
+
+    # Minimal accent bar below the headline for visual interest
+    c.setFillColor(BRAND_COLORS["accent_primary"])
+    accent_bar_width = plate_width * 0.4
+    accent_bar_height = 16 * mm
+    accent_bar_x = headline_center_x - (accent_bar_width / 2)
+    accent_bar_y = plate_y + (45 * mm)
+    c.roundRect(accent_bar_x, accent_bar_y, accent_bar_width, accent_bar_height, 8 * mm, fill=1, stroke=0)
+
+    # Draw headline lines (top to bottom)
+    ascent, descent = pdfmetrics.getAscentDescent(headline_font, headline_font_size)
+    line_height = ascent - descent
+    baseline_gap = line_height * 1.1
+    block_height = line_height + baseline_gap * (len(headline_lines) - 1)
+    first_baseline = headline_center_y + (block_height / 2) - ascent
+
+    for idx, line in enumerate(headline_lines):
+        baseline = first_baseline - (baseline_gap * idx)
+        draw_centered_string(
+            c,
+            line,
+            headline_font,
+            headline_font_size,
+            headline_center_x,
+            baseline,
+            BRAND_COLORS["headline_text"],
+        )
+
+    # Place the Skylar logo in bottom right - smaller and less prominent
+    if os.path.exists(LOGO_PATH):
+        try:
+            with Image.open(LOGO_PATH) as logo_img:
+                logo_ratio = logo_img.height / logo_img.width
+        except Exception as exc:  # pragma: no cover - defensive
+            print(f"⚠ Could not read logo image: {exc}")
+        else:
+            # Much smaller logo size
+            max_logo_width = safe_width * 0.14
+            max_logo_height = safe_height * 0.08
+            computed_logo_height = max_logo_width * logo_ratio
+
+            if computed_logo_height > max_logo_height:
+                computed_logo_height = max_logo_height
+                max_logo_width = computed_logo_height / logo_ratio
+
+            logo_reader = ImageReader(LOGO_PATH)
+            # Position in bottom right with safe margins
+            logo_x = graphic.doc_width - graphic.bleed - graphic.safe_inset - max_logo_width
+            logo_y = graphic.bleed + graphic.safe_inset + (50 * mm)
+            c.drawImage(
+                logo_reader,
+                logo_x,
+                logo_y,
+                width=max_logo_width,
+                height=computed_logo_height,
+                mask="auto",
+                preserveAspectRatio=True,
+            )
+    else:
+        print(
+            "⚠ Skylar logo not found at assets/skylar-clean-logo.png. "
+            "The backwall will be generated without the logo."
+        )
 
     graphic.save()
     print(f"✓ Created: {filename}")
