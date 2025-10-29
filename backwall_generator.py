@@ -260,7 +260,7 @@ def create_backwall(output_dir="output", show_guides=True):
             # Position centered horizontally
             eyes_x = graphic.bleed
             # Position much lower below the box with minimal overlap
-            overlap_amount = 80 * mm  # Positive value increases overlap (moves image up)
+            overlap_amount = 120 * mm  # Positive value increases overlap (moves image up)
             eyes_y_calculated = bg_y - eyes_height + overlap_amount
 
             # Allow the eyes image to position freely based on overlap_amount
@@ -319,12 +319,12 @@ def create_backwall(output_dir="output", show_guides=True):
     box_img = Image.new("RGBA", (box_width_px, box_height_px), (255, 255, 255, 0))
     draw = ImageDraw.Draw(box_img)
     
-    # Draw rounded rectangle with gradient alpha
+    # Draw rounded rectangle with gradient alpha - very translucent for premium blend
     for y in range(box_height_px):
-        # Calculate alpha: more opaque at top (0.95), fade to more transparent at bottom (0.70)
+        # Calculate alpha: more translucent at top (0.50), even more translucent at bottom (0.30)
         # y=0 is top, y=box_height_px-1 is bottom
         t = y / box_height_px  # 0 at top, 1 at bottom
-        alpha = int(255 * (0.95 - (t * 0.25)))  # 95% at top, 70% at bottom
+        alpha = int(255 * (0.50 - (t * 0.20)))  # 50% at top, 30% at bottom
         
         # Draw horizontal line with this alpha
         line_color = (255, 255, 255, alpha)
