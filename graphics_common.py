@@ -129,7 +129,7 @@ def create_bottom_fade_image(image_path, fade_percentage=0.35):
     return img
 
 
-def create_vignette_fade_image(image_path, edge_fade=0.25, bottom_fade=0.45):
+def create_vignette_fade_image(image_path, edge_fade=0.25, bottom_fade=0.45, top_fade=0.05):
     """
     Create a high-end vignette effect with smooth edge fading for premium blending.
 
@@ -138,8 +138,9 @@ def create_vignette_fade_image(image_path, edge_fade=0.25, bottom_fade=0.45):
 
     Args:
         image_path: Path to source image
-        edge_fade: Percentage of width/height to fade on sides/top (0.0 to 1.0)
+        edge_fade: Percentage of width to fade on left/right sides (0.0 to 1.0)
         bottom_fade: Percentage of height to fade on bottom (0.0 to 1.0)
+        top_fade: Percentage of height to fade on top (0.0 to 1.0)
 
     Returns:
         PIL Image with vignette fade applied
@@ -151,37 +152,39 @@ def create_vignette_fade_image(image_path, edge_fade=0.25, bottom_fade=0.45):
     mask = Image.new("L", (width, height), 255)
 
     # Calculate fade distances
-    edge_fade_dist = int(min(width, height) * edge_fade)
+    side_fade_dist = int(width * edge_fade)
     bottom_fade_dist = int(height * bottom_fade)
+    top_fade_dist = int(height * top_fade)
 
     # Apply vignette with smooth cubic easing
     for y in range(height):
         for x in range(width):
             # Calculate distance from each edge
+            # In image coords: y=0 is top, y=height-1 is bottom
             dist_left = x
             dist_right = width - x - 1
-            dist_top = height - y - 1
-            dist_bottom = y
+            dist_from_top = y  # Distance from top edge
+            dist_from_bottom = height - y - 1  # Distance from bottom edge
 
             # Start with full opacity
             alpha = 1.0
 
             # Apply side fades (left and right) with cubic easing
-            if dist_left < edge_fade_dist:
-                t = dist_left / edge_fade_dist
+            if dist_left < side_fade_dist:
+                t = dist_left / side_fade_dist
                 alpha *= t * t * (3 - 2 * t)  # Smoothstep easing
-            if dist_right < edge_fade_dist:
-                t = dist_right / edge_fade_dist
+            if dist_right < side_fade_dist:
+                t = dist_right / side_fade_dist
                 alpha *= t * t * (3 - 2 * t)
 
-            # Apply top fade with cubic easing
-            if dist_top < edge_fade_dist:
-                t = dist_top / edge_fade_dist
+            # Apply top fade (fade from top edge down)
+            if dist_from_top < top_fade_dist:
+                t = dist_from_top / top_fade_dist
                 alpha *= t * t * (3 - 2 * t)
 
-            # Apply stronger bottom fade (most important for this design)
-            if dist_bottom < bottom_fade_dist:
-                t = dist_bottom / bottom_fade_dist
+            # Apply bottom fade (fade from bottom edge up)
+            if dist_from_bottom < bottom_fade_dist:
+                t = dist_from_bottom / bottom_fade_dist
                 # Cubic easing for ultra-smooth transition
                 alpha *= t * t * t
 

@@ -132,7 +132,8 @@ def create_backwall(output_dir="output", show_guides=True):
     if os.path.exists(FACE_IMAGE_PATH):
         try:
             # Create image with sophisticated vignette for high-end blending
-            face_img = create_vignette_fade_image(FACE_IMAGE_PATH, edge_fade=0.25, bottom_fade=0.45)
+            # Barely-there top fade, strong side/bottom fades for premium blending
+            face_img = create_vignette_fade_image(FACE_IMAGE_PATH, edge_fade=0.25, bottom_fade=0.45, top_fade=0.05)
             face_ratio = face_img.height / face_img.width
 
             # FULL WIDTH - use entire trim width
