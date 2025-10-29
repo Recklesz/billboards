@@ -5,7 +5,10 @@
       "Bash(git add:*)",
       "Bash(python graphics_generator.py:*)",
       "Bash(python:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(inkscape:*)",
+      "Bash(pip install:*)",
+      "Bash(python3:*)"
     ],
     "deny": [],
     "ask": []
