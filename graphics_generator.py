@@ -48,11 +48,17 @@ BRAND_COLORS = {
     "accent_light": colors.HexColor("#8EE6F7"),
     "accent_muted": colors.HexColor("#DDF2F8"),
     "accent_dark": colors.HexColor("#197FA1"),
+    "gradient_navy": colors.HexColor("#0A1F2E"),
+    "gradient_royal_blue": colors.HexColor("#1A4D6F"),
+    "gradient_medium_blue": colors.HexColor("#5BA8C8"),
+    "gradient_light_blue": colors.HexColor("#B8E3F0"),
+    "gradient_white": colors.HexColor("#F5FAFC"),
 }
 
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 LOGO_PATH = os.path.join(BASE_DIR, "assets", "skylar-clean-logo.png")
+EYES_IMAGE_PATH = os.path.join(BASE_DIR, "assets", "b7255f53-8368-4d30-bc18-698d6a1ac0df.png")
 UBUNTU_BOLD_PATH = os.path.join(BASE_DIR, "assets", "fonts", "Ubuntu-Bold.ttf")
 
 
@@ -105,33 +111,107 @@ def draw_centered_string(canvas_obj, text, font_name, font_size, center_x, basel
     canvas_obj.drawCentredString(center_x, baseline_y, text)
 
 
+
+
+def draw_radial_gradient_spot(canvas_obj, center_x, center_y, max_radius, center_color, num_rings=80):
+    """
+    Draw a radial gradient spot that fades from center color to transparent/white.
+
+    Args:
+        canvas_obj: ReportLab canvas
+        center_x, center_y: Center point of the radial gradient
+        max_radius: Maximum radius of the gradient
+        center_color: Color at the center (will fade to white)
+        num_rings: Number of concentric circles to draw
+    """
+    for i in range(num_rings, 0, -1):
+        # Calculate distance from center (0 at center, 1 at edge)
+        t = i / num_rings
+
+        # Fade from center color to white
+        r = center_color.red + (1.0 - center_color.red) * (1 - t)
+        g = center_color.green + (1.0 - center_color.green) * (1 - t)
+        b = center_color.blue + (1.0 - center_color.blue) * (1 - t)
+
+        # Reduce alpha as we go out
+        alpha = t * 0.3  # Max 30% opacity
+
+        ring_color = colors.Color(r, g, b, alpha)
+        canvas_obj.setFillColor(ring_color)
+        canvas_obj.setStrokeColor(ring_color)
+
+        radius = max_radius * t
+        canvas_obj.circle(center_x, center_y, radius, fill=1, stroke=0)
+
+
 def draw_backwall_background(canvas_obj, graphic):
-    """Render branded background composition for the backwall - clean and elegant."""
+    """
+    Create a mostly white background with subtle radial teal gradient accents.
+    """
+    # Create background with radial gradients as PIL image, then draw it
+    # This avoids ReportLab canvas layering issues
 
-    safe_origin_x = graphic.bleed + graphic.safe_inset
-    safe_origin_y = graphic.bleed + graphic.safe_inset
-    safe_width = graphic.trim_width - (2 * graphic.safe_inset)
-    safe_height = graphic.trim_height - (2 * graphic.safe_inset)
+    # Convert dimensions to pixels for PIL (using 150 DPI)
+    dpi = 150
+    width_px = int((graphic.doc_width / mm) * (dpi / 25.4))
+    height_px = int((graphic.doc_height / mm) * (dpi / 25.4))
 
-    graphic.draw_background(BRAND_COLORS["background"])
+    # Create white background image
+    bg_img = Image.new("RGB", (width_px, height_px), (255, 255, 255))
 
-    # Large elegant curved shape on right side
-    canvas_obj.saveState()
-    canvas_obj.setFillColor(BRAND_COLORS["accent_light"])
-    canvas_obj.circle(graphic.doc_width + (150 * mm), safe_origin_y + safe_height * 0.65, 420 * mm, fill=1, stroke=0)
-    canvas_obj.restoreState()
+    # Create radial gradient overlay
+    overlay = Image.new("RGBA", (width_px, height_px), (0, 0, 0, 0))
 
-    # Complementary curved accent in upper area
-    canvas_obj.saveState()
-    canvas_obj.setFillColor(BRAND_COLORS["accent_muted"])
-    canvas_obj.circle(graphic.doc_width - (300 * mm), graphic.doc_height + (80 * mm), 380 * mm, fill=1, stroke=0)
-    canvas_obj.restoreState()
+    # Teal color for gradients (RGB)
+    teal_rgb = (90, 180, 190)  # Soft teal
 
-    # Subtle accent shape in lower left for balance
-    canvas_obj.saveState()
-    canvas_obj.setFillColor(BRAND_COLORS["accent_primary"])
-    canvas_obj.circle(-100 * mm, safe_origin_y + (150 * mm), 200 * mm, fill=1, stroke=0)
-    canvas_obj.restoreState()
+    # Define radial gradient spots (as fractions of width/height)
+    gradient_spots = [
+        {"x": 0.15, "y": 0.15, "radius": 0.35},  # Top left
+        {"x": 0.85, "y": 0.50, "radius": 0.30},  # Middle right
+        {"x": 0.20, "y": 0.85, "radius": 0.25},  # Bottom left
+        {"x": 0.80, "y": 0.90, "radius": 0.22},  # Bottom right
+    ]
+
+    # Draw each radial gradient
+    import numpy as np
+    for spot in gradient_spots:
+        cx = int(spot["x"] * width_px)
+        cy = int((1 - spot["y"]) * height_px)  # Flip Y for image coords
+        max_radius = int(spot["radius"] * max(width_px, height_px))
+
+        # Create gradient for this spot
+        for y in range(max(0, cy - max_radius), min(height_px, cy + max_radius)):
+            for x in range(max(0, cx - max_radius), min(width_px, cx + max_radius)):
+                # Calculate distance from center
+                dist = ((x - cx)**2 + (y - cy)**2) ** 0.5
+                if dist < max_radius:
+                    # Calculate alpha based on distance (0 at center, fades to 0 at edge)
+                    alpha = int(60 * (1 - (dist / max_radius) ** 1.5))  # Max 60 alpha, with smooth falloff
+                    if alpha > 0:
+                        # Blend with existing pixel
+                        existing = overlay.getpixel((x, y))
+                        new_alpha = min(255, existing[3] + alpha)
+                        overlay.putpixel((x, y), (*teal_rgb, new_alpha))
+
+    # Composite overlay onto background
+    bg_img.paste(overlay, (0, 0), overlay)
+
+    # Save temporarily and draw on canvas
+    import tempfile
+    import os
+    with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
+        tmp_path = tmp.name
+        bg_img.save(tmp_path)
+
+    try:
+        bg_reader = ImageReader(tmp_path)
+        canvas_obj.drawImage(bg_reader, 0, 0, width=graphic.doc_width, height=graphic.doc_height)
+    finally:
+        try:
+            os.remove(tmp_path)
+        except:
+            pass
 
 
 class ExhibitGraphic:
@@ -291,9 +371,44 @@ class CounterGraphic(ExhibitGraphic):
         )
 
 
+def create_bottom_fade_image(image_path, fade_percentage=0.35):
+    """
+    Create a version of the image with a gradient fade at the bottom
+    so it blends naturally into the background.
+
+    Args:
+        image_path: Path to source image
+        fade_percentage: What percentage of height should fade (0.0 to 1.0)
+
+    Returns:
+        PIL Image with bottom fade applied
+    """
+    img = Image.open(image_path).convert("RGBA")
+    width, height = img.size
+
+    # Create alpha gradient mask
+    mask = Image.new("L", (width, height), 255)
+
+    # Calculate fade region
+    fade_height = int(height * fade_percentage)
+    fade_start = height - fade_height
+
+    # Draw gradient in the fade region
+    for y in range(fade_start, height):
+        # Alpha goes from 255 (opaque) at fade_start to 0 (transparent) at bottom
+        alpha = int(255 * (1 - (y - fade_start) / fade_height))
+        for x in range(width):
+            mask.putpixel((x, y), alpha)
+
+    # Apply the mask to the alpha channel
+    img.putalpha(mask)
+
+    return img
+
+
 def create_sample_backwall(output_dir="output", show_guides=True):
     """
-    Create a sample backwall graphic with placeholder design
+    Create clean, bold backwall graphic with eyes image and BIG two-line headline
 
     Args:
         output_dir: Directory to save output files
@@ -306,92 +421,120 @@ def create_sample_backwall(output_dir="output", show_guides=True):
     graphic = BackwallGraphic()
     c = graphic.create_canvas(filename)
 
-    # Background composition
+    # Simple clean white background
     draw_backwall_background(c, graphic)
 
-    safe_origin_x = graphic.bleed + graphic.safe_inset
-    safe_origin_y = graphic.bleed + graphic.safe_inset
     safe_width = graphic.trim_width - (2 * graphic.safe_inset)
     safe_height = graphic.trim_height - (2 * graphic.safe_inset)
 
-    # Add crop marks
+    # Add crop marks and guides
     graphic.draw_crop_marks()
-
-    # Add guides (optional, for reference)
     graphic.draw_guides(show_guides)
     graphic.draw_no_text_zone_guide(show_guides)
 
-    # Headline font handling - MUCH LARGER for dominance
+    # Face image - FULL WIDTH with bottom fade
+    if os.path.exists(EYES_IMAGE_PATH):
+        try:
+            # Create image with bottom fade for natural blending
+            eyes_img = create_bottom_fade_image(EYES_IMAGE_PATH, fade_percentage=0.35)
+            eyes_ratio = eyes_img.height / eyes_img.width
+
+            # FULL WIDTH - use entire trim width
+            eyes_width = graphic.trim_width
+            eyes_height = eyes_width * eyes_ratio
+
+            # Position at top, centered horizontally
+            eyes_x = graphic.bleed
+            eyes_y = graphic.bleed + (1900 * mm) - (eyes_height / 2)
+
+            # Keep top within safe area
+            max_y = graphic.doc_height - graphic.bleed - graphic.safe_inset - eyes_height
+            if eyes_y > max_y:
+                eyes_y = max_y
+
+            # Save processed image temporarily for ReportLab
+            temp_path = os.path.join(output_dir, "_temp_eyes_fade.png")
+            eyes_img.save(temp_path)
+
+            eyes_reader = ImageReader(temp_path)
+            c.drawImage(
+                eyes_reader,
+                eyes_x,
+                eyes_y,
+                width=eyes_width,
+                height=eyes_height,
+                preserveAspectRatio=True,
+            )
+
+            # Clean up temp file
+            try:
+                os.remove(temp_path)
+            except:
+                pass
+
+        except Exception as exc:
+            print(f"⚠ Could not render eyes image: {exc}")
+            import traceback
+            traceback.print_exc()
+    else:
+        print("⚠ Eyes image not found.")
+
+    # BIG HEADLINE - Two lines, Ubuntu Bold
     headline_font = get_headline_font_name()
-    headline_lines = ["AI ROLE PLAYS", "FOR SALES TEAMS"]
-    max_headline_width = safe_width * 0.92
-    headline_font_size = fit_multiline_font_size(headline_lines, headline_font, max_headline_width, starting_size=300, minimum_size=80)
+    line1 = "AI ROLEPLAY"
+    line2 = "FOR SALES TEAMS"
 
-    ascent, descent = pdfmetrics.getAscentDescent(headline_font, headline_font_size)
-    line_height = ascent - descent
-    baseline_gap = line_height * 1.1
-    block_height = line_height + baseline_gap * (len(headline_lines) - 1)
+    # Make it BIG
+    max_headline_width = safe_width * 0.95
+    headline_font_size = fit_multiline_font_size(
+        [line1, line2],
+        headline_font,
+        max_headline_width,
+        starting_size=350,  # Start even bigger
+        minimum_size=100
+    )
 
+    # Position at eye level (140cm = 1400mm)
     headline_center_x = graphic.doc_width / 2
-    headline_center_y = safe_origin_y + safe_height * 0.58
 
-    # Framed headline panel for contrast - larger padding for prominence
-    plate_padding_x = 100 * mm
-    plate_padding_y = 110 * mm
-    max_line_width = max(pdfmetrics.stringWidth(line, headline_font, headline_font_size) for line in headline_lines)
-    plate_width = max_line_width + (2 * plate_padding_x)
-    plate_height = block_height + (2 * plate_padding_y)
-    plate_x = headline_center_x - (plate_width / 2)
-    plate_y = headline_center_y - (plate_height / 2)
-
-    # Ensure panel sits above no-text zone
-    min_plate_bottom = graphic.bleed + graphic.no_text_zone["height"] + (40 * mm)
-    if plate_y < min_plate_bottom:
-        shift = min_plate_bottom - plate_y
-        plate_y += shift
-        headline_center_y += shift
-
-    c.setFillColor(colors.white)
-    c.roundRect(plate_x, plate_y, plate_width, plate_height, 60 * mm, fill=1, stroke=0)
-
-    # Minimal accent bar below the headline for visual interest
-    c.setFillColor(BRAND_COLORS["accent_primary"])
-    accent_bar_width = plate_width * 0.4
-    accent_bar_height = 16 * mm
-    accent_bar_x = headline_center_x - (accent_bar_width / 2)
-    accent_bar_y = plate_y + (45 * mm)
-    c.roundRect(accent_bar_x, accent_bar_y, accent_bar_width, accent_bar_height, 8 * mm, fill=1, stroke=0)
-
-    # Draw headline lines (top to bottom)
+    # Calculate line spacing
     ascent, descent = pdfmetrics.getAscentDescent(headline_font, headline_font_size)
     line_height = ascent - descent
-    baseline_gap = line_height * 1.1
-    block_height = line_height + baseline_gap * (len(headline_lines) - 1)
-    first_baseline = headline_center_y + (block_height / 2) - ascent
+    baseline_gap = line_height * 1.15  # Tight spacing
 
-    for idx, line in enumerate(headline_lines):
-        baseline = first_baseline - (baseline_gap * idx)
-        draw_centered_string(
-            c,
-            line,
-            headline_font,
-            headline_font_size,
-            headline_center_x,
-            baseline,
-            BRAND_COLORS["headline_text"],
-        )
+    # Center the two-line block at 1400mm
+    block_center_y = graphic.bleed + (1400 * mm)
+    first_baseline = block_center_y + (baseline_gap / 2)
 
-    # Place the Skylar logo in bottom right - smaller and less prominent
+    # Ensure we're above no-text zone
+    min_y = graphic.bleed + graphic.no_text_zone["height"] + (150 * mm)
+    if first_baseline - line_height < min_y:
+        first_baseline = min_y + line_height
+
+    # Draw text with solid dark color for maximum contrast
+    text_color = BRAND_COLORS["headline_text"]  # Dark navy
+
+    # Line 1
+    draw_centered_string(
+        c, line1, headline_font, headline_font_size,
+        headline_center_x, first_baseline, text_color
+    )
+
+    # Line 2
+    draw_centered_string(
+        c, line2, headline_font, headline_font_size,
+        headline_center_x, first_baseline - baseline_gap, text_color
+    )
+
+    # Logo - prominent and visible (below text, 100cm = 1000mm)
     if os.path.exists(LOGO_PATH):
         try:
             with Image.open(LOGO_PATH) as logo_img:
                 logo_ratio = logo_img.height / logo_img.width
-        except Exception as exc:  # pragma: no cover - defensive
-            print(f"⚠ Could not read logo image: {exc}")
-        else:
-            # Much smaller logo size
-            max_logo_width = safe_width * 0.14
-            max_logo_height = safe_height * 0.08
+
+            # Make logo bigger and more visible
+            max_logo_width = safe_width * 0.25
+            max_logo_height = safe_height * 0.10
             computed_logo_height = max_logo_width * logo_ratio
 
             if computed_logo_height > max_logo_height:
@@ -399,9 +542,9 @@ def create_sample_backwall(output_dir="output", show_guides=True):
                 max_logo_width = computed_logo_height / logo_ratio
 
             logo_reader = ImageReader(LOGO_PATH)
-            # Position in bottom right with safe margins
-            logo_x = graphic.doc_width - graphic.bleed - graphic.safe_inset - max_logo_width
-            logo_y = graphic.bleed + graphic.safe_inset + (50 * mm)
+            logo_x = (graphic.doc_width - max_logo_width) / 2
+            logo_y = graphic.bleed + (1000 * mm)
+
             c.drawImage(
                 logo_reader,
                 logo_x,
@@ -411,11 +554,10 @@ def create_sample_backwall(output_dir="output", show_guides=True):
                 mask="auto",
                 preserveAspectRatio=True,
             )
+        except Exception as exc:
+            print(f"⚠ Could not read logo: {exc}")
     else:
-        print(
-            "⚠ Skylar logo not found at assets/skylar-clean-logo.png. "
-            "The backwall will be generated without the logo."
-        )
+        print("⚠ Logo not found.")
 
     graphic.save()
     print(f"✓ Created: {filename}")
