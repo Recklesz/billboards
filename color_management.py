@@ -146,12 +146,12 @@ def ensure_cmyk_image(image_path: str, output_path: Optional[str] = None,
     if output_path is None:
         output_path = image_path
 
-    # PNG doesn't support CMYK, so use TIFF format for CMYK images
+    # PNG doesn't support CMYK, use JPEG for better PDF compatibility
     if output_path.lower().endswith('.png'):
-        output_path = output_path[:-4] + '.tif'
+        output_path = output_path[:-4] + '.jpg'
     elif not output_path.lower().endswith(('.tif', '.tiff', '.jpg', '.jpeg')):
-        # Add .tif extension if no extension or unsupported extension
-        output_path = output_path + '.tif'
+        # Add .jpg extension if no extension or unsupported extension
+        output_path = output_path + '.jpg'
 
     img = Image.open(image_path)
 
@@ -227,12 +227,12 @@ def create_cmyk_gradient_image(width: int, height: int,
         CMYK images are saved as TIFF since PNG doesn't support CMYK mode.
         The output_path extension will be changed to .tif if it's .png
     """
-    # PNG doesn't support CMYK, so use TIFF format for CMYK images
+    # PNG doesn't support CMYK, use JPEG for better PDF compatibility
     if output_path.lower().endswith('.png'):
-        output_path = output_path[:-4] + '.tif'
+        output_path = output_path[:-4] + '.jpg'
     elif not output_path.lower().endswith(('.tif', '.tiff', '.jpg', '.jpeg')):
-        # Add .tif extension if no extension or unsupported extension
-        output_path = output_path + '.tif'
+        # Add .jpg extension if no extension or unsupported extension
+        output_path = output_path + '.jpg'
 
     # Create CMYK image
     img = Image.new('CMYK', (width, height))
@@ -302,12 +302,12 @@ def apply_cmyk_vignette(image_path: str, output_path: str,
         CMYK images are saved as TIFF since PNG doesn't support CMYK mode.
         The output_path extension will be changed to .tif if it's .png
     """
-    # PNG doesn't support CMYK, so use TIFF format for CMYK images
+    # PNG doesn't support CMYK, use JPEG for better PDF compatibility
     if output_path.lower().endswith('.png'):
-        output_path = output_path[:-4] + '.tif'
+        output_path = output_path[:-4] + '.jpg'
     elif not output_path.lower().endswith(('.tif', '.tiff', '.jpg', '.jpeg')):
-        # Add .tif extension if no extension or unsupported extension
-        output_path = output_path + '.tif'
+        # Add .jpg extension if no extension or unsupported extension
+        output_path = output_path + '.jpg'
 
     img = Image.open(image_path)
 

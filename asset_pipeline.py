@@ -274,14 +274,14 @@ class AssetPipeline:
         else:
             output_path = self.cache.get_path(f"{source_hash}_cmyk")
         
-        # Check for both original extension and .tif (CMYK images are saved as TIFF)
-        tif_path = output_path
+        # Check for both original extension and .jpg (CMYK images are saved as JPEG)
+        jpg_path = output_path
         if output_path.lower().endswith('.png'):
-            tif_path = output_path[:-4] + '.tif'
+            jpg_path = output_path[:-4] + '.jpg'
 
-        if os.path.exists(tif_path):
-            logger.debug(f"Using cached CMYK asset: {os.path.basename(tif_path)}")
-            return tif_path
+        if os.path.exists(jpg_path):
+            logger.debug(f"Using cached CMYK asset: {os.path.basename(jpg_path)}")
+            return jpg_path
 
         if os.path.exists(output_path):
             logger.debug(f"Using cached CMYK asset: {os.path.basename(output_path)}")

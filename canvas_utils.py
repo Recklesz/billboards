@@ -102,15 +102,60 @@ class CMYKCanvas:
         """Draw text with CMYK color."""
         self.set_fill_color_cmyk(color, alpha)
         self.canvas.setFont(font_name, font_size)
-        
+
         if centered:
             self.canvas.drawCentredString(x, y, text)
         else:
             self.canvas.drawString(x, y, text)
-        
+
         # Reset alpha
         self.canvas.setFillAlpha(1.0)
-    
+
+    def draw_cmyk_image(self, image_path: str, x: float, y: float,
+                        width: float, height: float,
+                        preserve_aspect: bool = True,
+                        mask: str = "auto"):
+        """
+        Draw an image preserving CMYK color mode.
+
+        Args:
+            image_path: Path to image file
+            x, y: Position in points
+            width, height: Size in points
+            preserve_aspect: If True, maintain aspect ratio
+            mask: Mask mode ('auto', None, or mask data)
+
+        Note:
+            This method uses PIL to directly embed CMYK images in the PDF,
+            avoiding ReportLab's ImageReader which converts to RGB.
+        """
+        try:
+            img = Image.open(image_path)
+
+            # If image is CMYK and we want to preserve it
+            if img.mode == 'CMYK' and self.use_cmyk:
+                # Use drawInlineImage to preserve CMYK
+                self.canvas.drawInlineImage(
+                    img, x, y,
+                    width=width,
+                    height=height,
+                    preserveAspectRatio=preserve_aspect
+                )
+            else:
+                # Fallback to standard method for non-CMYK or proof mode
+                from reportlab.lib.utils import ImageReader
+                img_reader = ImageReader(image_path)
+                self.canvas.drawImage(
+                    img_reader, x, y,
+                    width=width,
+                    height=height,
+                    mask=mask,
+                    preserveAspectRatio=preserve_aspect
+                )
+        except Exception as e:
+            logger.error(f"Failed to draw image {image_path}: {e}")
+            raise
+
     def __getattr__(self, name):
         """Delegate unknown attributes to underlying canvas."""
         return getattr(self.canvas, name)

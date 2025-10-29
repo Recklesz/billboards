@@ -88,15 +88,18 @@ def draw_backwall_background_legacy(canvas_obj, graphic):
             pass
 
 
-def create_backwall(output_dir="output", show_guides=False, use_cmyk=True, generate_proof=True):
+def create_backwall(output_dir="output", show_guides=False, use_cmyk=False, generate_proof=True,
+                    create_cmyk_raster=False, cmyk_dpi=150):
     """
     Create backwall graphic with branded design using the new pipeline.
 
     Args:
         output_dir: Directory to save output files
         show_guides: Whether to show guide lines (safe area, no-text zone)
-        use_cmyk: Use CMYK color mode (default: True)
+        use_cmyk: Use CMYK color mode (default: False - ReportLab converts to RGB anyway)
         generate_proof: Generate JPG proof (default: True)
+        create_cmyk_raster: Create rasterized CMYK PDF using img2pdf (default: False)
+        cmyk_dpi: DPI for CMYK rasterization (default: 150)
 
     Returns:
         Path to the generated PDF file
@@ -136,11 +139,26 @@ def create_backwall(output_dir="output", show_guides=False, use_cmyk=True, gener
     pdf_path = layout.generate(backwall_path)
     
     logger.info(f"✓ Created: {pdf_path}")
-    
+
     # Create JPG proof
     if generate_proof:
         create_jpg_proof(pdf_path, output_dir, "Backwall_100x217cm_proof.jpg")
-    
+
+    # Create rasterized CMYK version if requested
+    if create_cmyk_raster:
+        from cmyk_pdf_wrapper import convert_pdf_to_cmyk, verify_cmyk_pdf
+
+        cmyk_pdf_path = pdf_path.replace('.pdf', '_RASTER_CMYK.pdf')
+        logger.info(f"\nCreating rasterized CMYK PDF at {cmyk_dpi} DPI...")
+
+        convert_pdf_to_cmyk(pdf_path, cmyk_pdf_path, dpi=cmyk_dpi)
+
+        # Verify
+        if verify_cmyk_pdf(cmyk_pdf_path):
+            logger.info(f"✓ CMYK PDF verified: {os.path.basename(cmyk_pdf_path)}")
+
+        return cmyk_pdf_path
+
     return pdf_path
 
 
@@ -156,6 +174,14 @@ if __name__ == "__main__":
 
     # For review with guides visible, use:
     # backwall_pdf = create_backwall(output_dir="output", show_guides=True)
+
+    # For true CMYK PDF (rasterized, no vector text), use:
+    # backwall_pdf = create_backwall(
+    #     output_dir="output",
+    #     show_guides=False,
+    #     create_cmyk_raster=True,
+    #     cmyk_dpi=300  # 150-300 DPI recommended
+    # )
 
     print("\n" + "-"*60)
     print("✓ Backwall generated successfully!")

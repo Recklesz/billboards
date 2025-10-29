@@ -9,9 +9,9 @@ import os
 import logging
 from typing import Optional
 from reportlab.lib.units import mm
-from reportlab.lib.utils import ImageReader
 from reportlab.pdfbase import pdfmetrics
 from PIL import Image
+import tempfile
 
 from graphics_config import GraphicsConfig
 from canvas_utils import ExhibitGraphicV2, CMYKCanvas, fit_multiline_font_size
@@ -122,14 +122,16 @@ class BackwallLayout:
             # Convert to CMYK if needed
             if self.config.use_cmyk:
                 cmyk_path = self.asset_pipeline.ensure_cmyk_asset(tmp_path, "backwall_bg.png")
-                bg_reader = ImageReader(cmyk_path)
+                image_path = cmyk_path
             else:
-                bg_reader = ImageReader(tmp_path)
-            
-            self.canvas.canvas.drawImage(
-                bg_reader, 0, 0,
+                image_path = tmp_path
+
+            # Use CMYK-aware image drawing
+            self.canvas.draw_cmyk_image(
+                image_path, 0, 0,
                 width=self.graphic.doc_width,
-                height=self.graphic.doc_height
+                height=self.graphic.doc_height,
+                preserve_aspect=False
             )
         finally:
             try:
@@ -175,12 +177,12 @@ class BackwallLayout:
             if face_y > max_y:
                 face_y = max_y
             
-            # Draw
-            face_reader = ImageReader(face_path)
-            self.canvas.canvas.drawImage(
-                face_reader, face_x, face_y,
+            # Draw using CMYK-aware method
+            self.canvas.draw_cmyk_image(
+                face_path, face_x, face_y,
                 width=face_width, height=face_height,
-                mask="auto", preserveAspectRatio=True
+                preserve_aspect=True,
+                mask="auto"
             )
             
         except Exception as e:
@@ -231,12 +233,12 @@ class BackwallLayout:
             
             logger.debug(f"Eyes positioning: bg_y={bg_y/mm:.1f}mm, eyes_y={eyes_y/mm:.1f}mm")
             
-            # Draw
-            eyes_reader = ImageReader(eyes_path)
-            self.canvas.canvas.drawImage(
-                eyes_reader, eyes_x, eyes_y,
+            # Draw using CMYK-aware method
+            self.canvas.draw_cmyk_image(
+                eyes_path, eyes_x, eyes_y,
                 width=eyes_width, height=eyes_height,
-                mask="auto", preserveAspectRatio=True
+                preserve_aspect=True,
+                mask="auto"
             )
             
             return eyes_y
@@ -381,8 +383,9 @@ class BackwallLayout:
             box_img.save(tmp_path)
         
         try:
-            box_reader = ImageReader(tmp_path)
-            self.canvas.canvas.drawImage(box_reader, x, y, width=width, height=height, mask="auto")
+            # Use CMYK-aware method (temp file is PNG/RGB, which is fine for text box)
+            self.canvas.draw_cmyk_image(tmp_path, x, y, width=width, height=height,
+                                       preserve_aspect=False, mask="auto")
         finally:
             try:
                 os.remove(tmp_path)
@@ -398,12 +401,13 @@ class BackwallLayout:
         try:
             logo_x = center_x - (width / 2)
             logo_y = baseline_y - height
-            
-            logo_reader = ImageReader(self.config.assets.logo)
-            self.canvas.canvas.drawImage(
-                logo_reader, logo_x, logo_y,
+
+            # Use CMYK-aware method
+            self.canvas.draw_cmyk_image(
+                self.config.assets.logo, logo_x, logo_y,
                 width=width, height=height,
-                mask="auto", preserveAspectRatio=True
+                preserve_aspect=True,
+                mask="auto"
             )
         except Exception as e:
             logger.error(f"Could not render logo: {e}")
