@@ -35,7 +35,7 @@ brew install poppler  # macOS example
 ```bash
 python graphics_generator.py
 ```
-This creates the production PDFs (with guides enabled by default) inside `output/` and, if `pdf2image` is available, matching JPG proofs. @README.md#49-63
+This creates the production PDFs (guides disabled by default for clean output) inside `output/` and, if `pdf2image` is available, matching JPG proofs. @README.md#49-63
 
 Both `backwall_generator.py` and `counter_generator.py` expose standalone `create_*` functions when you need per-piece control or want to disable guides. @backwall_generator.py#55-205 @counter_generator.py#18-76
 
@@ -49,7 +49,7 @@ After customizing, review the live PDFs in `output/` and complete pre-flight che
 ## Production Specifications
 `requirements.md` is the contract: keep all work compliant. Key highlights:
 - Deliverables: Backwall (100 × 217 cm) and Counter (30 × 80 cm) with +5 mm bleed. @requirements.md#6-19
-- Layout rules: 50 mm safe area on every edge; backwall also reserves a 30 × 80 cm no-text zone at the bottom-left of the trim. @requirements.md#20-25
+- Layout rules: 50 mm safe area on every edge; backwall also reserves a 30 × 80 cm no-text zone at the bottom-right of the trim. @requirements.md#20-25
 - Color & imagery: CMYK only, embed everything, target 150–300 dpi, rich black recipe provided. @requirements.md#26-32
 - Typography: outline fonts before handoff; prefer vectors. @requirements.md#33-37
 - Deliverables & packaging: export print PDFs per piece, include crop marks + bleed, ship JPG proofs. @requirements.md#38-51

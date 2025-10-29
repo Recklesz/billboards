@@ -20,7 +20,7 @@ Totally—here’s a clean spec you can hand to a dev/designer.
 ## Layout rules
 
 * **Safe area (both pieces):** keep all text/logos **≥50 mm** inside from every trimmed edge.
-* **Backwall “no-text” zone:** a **30 × 80 cm** rectangle **flush to the bottom-left corner** of the trim area. Background color/pattern may continue here, but **no copy or logos**.
+* **Backwall “no-text” zone:** a **30 × 80 cm** rectangle **flush to the bottom-right corner** of the trim area. Background color/pattern may continue here, but **no copy or logos**.
 * The event manual shows the full wall as 244 cm tall with a 27 cm structural/header zone. Your **printable artwork is 217 cm high**—design within that height.
 
 ## Color & imagery
@@ -60,7 +60,7 @@ Totally—here’s a clean spec you can hand to a dev/designer.
     "trim": { "width": 1000, "height": 2170 },
     "bleed": { "all_sides": 5 },
     "safe_inset": 50,
-    "no_text_zone": { "x": 0, "y": 0, "width": 300, "height": 800 }
+    "no_text_zone": { "x": 700, "y": 0, "width": 300, "height": 800 }
   },
   "counter": {
     "trim": { "width": 300, "height": 800 },

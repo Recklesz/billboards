@@ -18,7 +18,7 @@ SPECS = {
         "trim": {"width": 1000, "height": 2170},
         "bleed": {"all_sides": 5},
         "safe_inset": 50,
-        "no_text_zone": {"x": 0, "y": 0, "width": 300, "height": 800}
+        "no_text_zone": {"x": 700, "y": 0, "width": 300, "height": 800}
     },
     "counter": {
         "trim": {"width": 300, "height": 800},
@@ -361,7 +361,7 @@ class BackwallGraphic(ExhibitGraphic):
             specs["safe_inset"]
         )
 
-        # No-text zone (bottom-left corner, in trim coordinates)
+        # No-text zone (bottom-right corner, in trim coordinates)
         ntz = specs["no_text_zone"]
         self.no_text_zone = {
             "x": ntz["x"] * mm,

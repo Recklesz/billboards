@@ -412,11 +412,11 @@ if __name__ == "__main__":
 
     print("Generating backwall...\n")
 
-    # Generate backwall with guides for review
-    backwall_pdf = create_backwall(output_dir="output", show_guides=True)
+    # Generate backwall without guides (production-ready)
+    backwall_pdf = create_backwall(output_dir="output", show_guides=False)
 
-    # For final production, use:
-    # backwall_pdf = create_backwall(output_dir="output", show_guides=False)
+    # For review with guides visible, use:
+    # backwall_pdf = create_backwall(output_dir="output", show_guides=True)
 
     print("\n" + "-"*60)
     print("✓ Backwall generated successfully!")
