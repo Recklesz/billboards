@@ -1,29 +1,25 @@
 """
 Counter Graphics Generator
 Creates counter graphics according to print specifications.
+
+Now uses the refactored pipeline architecture with CMYK compliance.
 """
 
-from reportlab.lib import colors
-from reportlab.lib.units import mm
-from reportlab.lib.utils import ImageReader
-from PIL import Image
 import os
 import json
-import qrcode
-import tempfile
-import numpy as np
+import logging
 
-from graphics_common import (
-    SPECS,
-    BRAND_COLORS,
-    LOGO_PATH,
-    CounterGraphic,
-    create_jpg_proof,
-    get_headline_font_name
-)
+from graphics_config import GraphicsConfig
+from asset_pipeline import AssetPipeline
+from counter_layout import CounterLayout
+from graphics_common import create_jpg_proof
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
+logger = logging.getLogger(__name__)
 
 
-def draw_counter_background(canvas_obj, graphic):
+def draw_counter_background_legacy(canvas_obj, graphic):
     """
     Create background with subtle radial teal gradient accents matching backwall design.
     """
@@ -88,7 +84,7 @@ def draw_counter_background(canvas_obj, graphic):
             pass
 
 
-def generate_qr_code(url, output_dir):
+def generate_qr_code_legacy(url, output_dir):
     """
     Generate a high-quality QR code for the given URL.
     
@@ -119,137 +115,60 @@ def generate_qr_code(url, output_dir):
     return qr_path
 
 
-def create_counter(output_dir="output", show_guides=True):
+def create_counter(output_dir="output", show_guides=False, use_cmyk=True, generate_proof=True):
     """
-    Create counter graphic with QR code centerpiece and high-end design
+    Create counter graphic with QR code centerpiece using the new pipeline.
 
     Args:
         output_dir: Directory to save output files
         show_guides: Whether to show guide lines (safe area)
+        use_cmyk: Use CMYK color mode (default: True)
+        generate_proof: Generate JPG proof (default: True)
 
     Returns:
         Path to the generated PDF file
     """
-    os.makedirs(output_dir, exist_ok=True)
-
-    filename = os.path.join(output_dir, "Counter_30x80cm_bleed5mm_CMYK.pdf")
-
-    graphic = CounterGraphic()
-    c = graphic.create_canvas(filename)
-
-    # Background with radial gradients matching backwall
-    draw_counter_background(c, graphic)
-
-    # Calculate safe area bounds
-    safe_origin_x = graphic.bleed + graphic.safe_inset
-    safe_origin_y = graphic.bleed + graphic.safe_inset
-    safe_width = graphic.trim_width - (2 * graphic.safe_inset)
-    safe_height = graphic.trim_height - (2 * graphic.safe_inset)
-
-    # Add crop marks
-    graphic.draw_crop_marks()
-
-    # Add guides
-    graphic.draw_guides(show_guides)
-
-    # Generate QR code
-    qr_url = "https://www.getskylar.com/conference"
-    qr_path = generate_qr_code(qr_url, output_dir)
-
-    try:
-        # QR code dimensions - make it prominent but elegant
-        qr_size = safe_width * 0.65  # 65% of safe width for visual impact
-        qr_x = (graphic.doc_width - qr_size) / 2  # Center horizontally
-        
-        # Position QR code in upper-middle area
-        qr_y = graphic.bleed + (480 * mm)  # Position in upper portion
-
-        # Create elegant rounded container for QR code
-        container_padding = 25 * mm
-        container_x = qr_x - container_padding
-        container_y = qr_y - container_padding
-        container_width = qr_size + (2 * container_padding)
-        container_height = qr_size + (2 * container_padding)
-        container_radius = 35 * mm
-
-        # Draw semi-transparent white container with rounded corners
-        c.setFillColorRGB(1, 1, 1, alpha=0.92)  # 92% white for elegance
-        c.roundRect(container_x, container_y, container_width, container_height, 
-                   container_radius, fill=1, stroke=0)
-
-        # Draw QR code
-        qr_reader = ImageReader(qr_path)
-        c.drawImage(
-            qr_reader,
-            qr_x,
-            qr_y,
-            width=qr_size,
-            height=qr_size,
-            preserveAspectRatio=True,
-        )
-
-        # Clean up QR code temp file
-        try:
-            os.remove(qr_path)
-        except:
-            pass
-
-    except Exception as exc:
-        print(f"⚠ Could not render QR code: {exc}")
-        import traceback
-        traceback.print_exc()
-
-    # Add Skylar logo at bottom
-    if os.path.exists(LOGO_PATH):
-        try:
-            with Image.open(LOGO_PATH) as logo_img:
-                logo_ratio = logo_img.height / logo_img.width
-                
-                # Logo sizing - elegant and proportional
-                max_logo_width = safe_width * 0.55
-                logo_width = max_logo_width
-                logo_height = logo_width * logo_ratio
-                
-                # Position logo at bottom with generous spacing
-                logo_x = (graphic.doc_width - logo_width) / 2
-                logo_y = safe_origin_y + (40 * mm)  # 40mm from bottom safe area
-                
-                # Draw logo
-                logo_reader = ImageReader(LOGO_PATH)
-                c.drawImage(
-                    logo_reader,
-                    logo_x,
-                    logo_y,
-                    width=logo_width,
-                    height=logo_height,
-                    mask="auto",
-                    preserveAspectRatio=True,
-                )
-        except Exception as exc:
-            print(f"⚠ Could not render logo: {exc}")
-    else:
-        print("⚠ Logo not found.")
-
-    # Add website URL below QR code with Ubuntu Bold
-    headline_font = get_headline_font_name()
-    c.setFillColor(BRAND_COLORS["headline_text"])
+    logger.info("Generating counter using new pipeline...")
     
-    # Website URL text
-    website_text = "CallSkylar.com"
-    website_font_size = 42
-    c.setFont(headline_font, website_font_size)
-    text_width = c.stringWidth(website_text, headline_font, website_font_size)
-    text_x = (graphic.doc_width - text_width) / 2
-    text_y = qr_y - (55 * mm)  # Position below QR container
-    c.drawString(text_x, text_y, website_text)
-
-    graphic.save()
-    print(f"✓ Created: {filename}")
-
+    # Create configuration
+    config = GraphicsConfig.default(
+        output_dir=output_dir,
+        show_guides=show_guides
+    )
+    config.use_cmyk = use_cmyk
+    config.generate_proofs = generate_proof
+    
+    # Validate configuration
+    issues = config.validate()
+    if issues:
+        logger.error("Configuration validation failed:")
+        for issue in issues:
+            logger.error(f"  {issue}")
+        raise RuntimeError("Configuration validation failed")
+    
+    # Ensure output directories
+    config.output.ensure_directories()
+    
+    # Initialize asset pipeline
+    asset_pipeline = AssetPipeline(
+        cache_dir=config.output.temp_dir,
+        force_cmyk=use_cmyk
+    )
+    
+    # Generate counter
+    counter_filename = "Counter_30x80cm_bleed5mm_CMYK.pdf"
+    counter_path = os.path.join(output_dir, counter_filename)
+    
+    layout = CounterLayout(config, asset_pipeline)
+    pdf_path = layout.generate(counter_path)
+    
+    logger.info(f"✓ Created: {pdf_path}")
+    
     # Create JPG proof
-    create_jpg_proof(filename, output_dir, "Counter_30x80cm_proof.jpg")
-
-    return filename
+    if generate_proof:
+        create_jpg_proof(pdf_path, output_dir, "Counter_30x80cm_proof.jpg")
+    
+    return pdf_path
 
 
 if __name__ == "__main__":
@@ -257,17 +176,13 @@ if __name__ == "__main__":
     print("COUNTER GRAPHICS GENERATOR")
     print("="*60 + "\n")
 
-    print("Specifications:")
-    print(json.dumps(SPECS["counter"], indent=2))
-    print("\n" + "-"*60 + "\n")
-
     print("Generating counter...\n")
 
-    # Generate counter with guides for review
-    counter_pdf = create_counter(output_dir="output", show_guides=True)
+    # Generate counter without guides (production-ready)
+    counter_pdf = create_counter(output_dir="output", show_guides=False)
 
-    # For final production, use:
-    # counter_pdf = create_counter(output_dir="output", show_guides=False)
+    # For review with guides visible, use:
+    # counter_pdf = create_counter(output_dir="output", show_guides=True)
 
     print("\n" + "-"*60)
     print("✓ Counter generated successfully!")
@@ -276,7 +191,7 @@ if __name__ == "__main__":
 
     print("Pre-flight checklist:")
     print("  [✓] Canvas set to trim size + 5mm bleed on all sides")
-    print("  [✓] CMYK document (reportlab default)")
+    print("  [✓] CMYK color mode enforced")
     print("  [!] All text should be outlined (requires post-processing)")
     print("  [✓] Safe area respected")
     print("  [✓] Exported PDF with crop marks & bleed")

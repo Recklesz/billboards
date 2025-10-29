@@ -5,46 +5,87 @@
 - Capture current capabilities, outstanding work, and key references so agents can quickly orient and contribute.
 
 ## Repository Layout
-- `graphics_generator.py` — primary script that produces backwall & counter PDFs plus JPG proofs. @graphics_generator.py#1-485
-- `graphics_common.py` — shared geometry, color palette, and helpers used by all generators. @graphics_common.py#1-295
-- `backwall_generator.py`, `counter_generator.py` — focused entry points for individual deliverables. @backwall_generator.py#1-223 @counter_generator.py#1-76
-- `assets/` — branded imagery (logo) and supporting design artifacts.
-- `output/` — generated PDFs/JPG proofs checked into the repo for reference. @README.md#145-149
-- `apps/preview/` — React + Vite scaffold for an interactive spec preview (currently template-only). @apps/preview/README.md#1-74
-- `requirements.md` — authoritative production specifications supplied by the event team. @requirements.md#4-93
-- `backwall_brief.md` — narrative creative brief summarizing messaging priorities (keep handy when updating layouts).
+
+### New Pipeline Architecture
+- `backwall_generator.py` / `counter_generator.py` — **primary entry points** for generating each deliverable
+- `graphics_config.py` — dataclass-based configuration and specifications (replaces hard-coded dicts)
+- `color_management.py` — CMYK color utilities, brand palette, and conversion functions
+- `asset_pipeline.py` — asset generation with caching (gradients, vignettes, QR codes)
+- `canvas_utils.py` — CMYK-aware canvas operations and drawing primitives
+- `backwall_layout.py` / `counter_layout.py` — layout orchestrators for each deliverable
+- `PIPELINE_README.md` — comprehensive technical documentation for the new pipeline
+
+### Optional/Utility Scripts
+- `generate_graphics.py` — unified CLI orchestrator with CMYK verification and Inkscape integration (optional)
+- `graphics_generator.py` — original combined generator (legacy, deprecated)
+- `graphics_common.py` — shared geometry, color palette, and helpers (still used for compatibility)
+
+### Supporting Files
+- `assets/` — branded imagery (logo) and supporting design artifacts
+- `output/` — generated PDFs/JPG proofs with organized subdirectories (raw/, temp/, proofs/)
+- `apps/preview/` — React + Vite scaffold for an interactive spec preview (currently template-only)
+- `requirements.md` — authoritative production specifications supplied by the event team
+- `backwall_brief.md` — narrative creative brief summarizing messaging priorities
 
 ## Print Graphics Toolkit
+
 ### Overview
-The Python tooling centers on `ExhibitGraphic`, which sets up trim + bleed geometry, safe areas, and crop marks for any deliverable. `BackwallGraphic` extends it with the required no-text zone, while `CounterGraphic` handles the counter panel. Supporting helpers register fonts, fit text to widths, and export optional JPG proofs. @graphics_generator.py#18-421
+The **new pipeline** uses a modular architecture with CMYK enforcement at every stage:
+
+1. **Configuration Layer**: `GraphicsConfig` provides dataclass-based specs that can load from JSON
+2. **Color Management**: `CMYKColor` and utilities ensure all colors are CMYK-compliant
+3. **Asset Pipeline**: `AssetPipeline` generates and caches intermediate assets (CMYK gradients, vignetted images, QR codes)
+4. **Canvas Layer**: `ExhibitGraphicV2` and `CMYKCanvas` provide CMYK-aware drawing operations
+5. **Layout Modules**: `BackwallLayout` and `CounterLayout` orchestrate deliverable generation
+6. **CLI Orchestration**: `generate_graphics.py` provides unified interface with verification
+
+See `PIPELINE_README.md` for detailed technical documentation.
 
 ### Python Environment
 ```bash
 pip install -r requirements.txt
 ```
-(`reportlab`, `Pillow`, and optional `pdf2image` are already listed.). @README.md#18-63
 
-Optional JPG proof generation needs:
+Dependencies: `reportlab`, `Pillow`, `qrcode`, `numpy`, and optional `pdf2image`, `pypdfium2`
+
+Optional tools:
 ```bash
-pip install pdf2image
-brew install poppler  # macOS example
+pip install pdf2image pypdfium2
+brew install poppler inkscape  # macOS
 ```
-@README.md#26-40
 
-### Running the generator
+### Running the Generators
 ```bash
-python graphics_generator.py
+# Generate backwall (production-ready, no guides)
+python backwall_generator.py
+
+# Generate counter
+python counter_generator.py
+
+# For review with guides visible, edit the scripts to use show_guides=True
 ```
-This creates the production PDFs (guides disabled by default for clean output) inside `output/` and, if `pdf2image` is available, matching JPG proofs. @README.md#49-63
 
-Both `backwall_generator.py` and `counter_generator.py` expose standalone `create_*` functions when you need per-piece control or want to disable guides. @backwall_generator.py#55-205 @counter_generator.py#18-76
+Output structure:
+```
+output/
+├── temp/                         # Cached intermediate assets
+├── proofs/                       # JPG proofs for review
+└── *.pdf                         # Final production PDFs
+```
 
-### Customizing layouts
-- Colors and background geometry live in `draw_backwall_background` and the counter section; adjust the color tokens in `BRAND_COLORS` for brand updates. @graphics_generator.py#44-134
-- Headline typography uses `get_headline_font_name`, `fit_multiline_font_size`, and `draw_centered_string`. These helpers ensure text stays inside safe bounds and adapts if Ubuntu Bold is unavailable. @graphics_generator.py#59-383
-- The Skylar logo is read from `assets/skylar-clean-logo.png`; confirm the asset exists before running new exports. @graphics_generator.py#384-418
+Both generators now use the new pipeline internally with CMYK enforcement.
 
-After customizing, review the live PDFs in `output/` and complete pre-flight checks outlined below.
+### Customizing Layouts
+**New Pipeline:**
+- Brand colors: Edit `BRAND_COLORS_CMYK` in `color_management.py` (CMYK values)
+- Layout parameters: Edit `BackwallLayout` / `CounterLayout` class attributes
+- Specifications: Modify `GraphicsSpec.from_requirements_md()` or load custom JSON
+
+**Legacy:**
+- Colors: Edit `BRAND_COLORS` in `graphics_common.py`
+- Layout: Modify `draw_backwall_background()` and layout functions
+
+After customizing, review PDFs in `output/` and complete pre-flight checks.
 
 ## Production Specifications
 `requirements.md` is the contract: keep all work compliant. Key highlights:
