@@ -16,6 +16,7 @@ from graphics_common import (
     BRAND_COLORS,
     LOGO_PATH,
     FACE_IMAGE_PATH,
+    EYES_IMAGE_PATH,
     BackwallGraphic,
     get_headline_font_name,
     fit_multiline_font_size,
@@ -133,7 +134,7 @@ def create_backwall(output_dir="output", show_guides=True):
         try:
             # Create image with sophisticated vignette for high-end blending
             # Barely-there top fade, strong side/bottom fades for premium blending
-            face_img = create_vignette_fade_image(FACE_IMAGE_PATH, edge_fade=0.25, bottom_fade=0.45, top_fade=0.05)
+            face_img = create_vignette_fade_image(FACE_IMAGE_PATH, edge_fade=0.25, bottom_fade=0.45, top_fade=0.10)
             face_ratio = face_img.height / face_img.width
 
             # FULL WIDTH - use entire trim width
@@ -207,6 +208,12 @@ def create_backwall(output_dir="output", show_guides=True):
     text_width_line2 = pdfmetrics.stringWidth(line2, headline_font, headline_font_size)
     max_text_width = max(text_width_line1, text_width_line2)
 
+    # Calculate box dimensions first (needed for eyes image positioning)
+    bg_padding_h = 30 * mm  # Horizontal padding around text
+    bg_padding_top = 35 * mm  # Smaller padding above "AI ROLEPLAY"
+    bg_padding_bottom = 60 * mm  # Bigger padding below "FOR SALES TEAMS" to accommodate logo
+    logo_gap = 60 * mm  # Extra space to push logo down
+
     # Load logo dimensions to include in box calculation
     logo_width = 0
     logo_height = 0
@@ -229,18 +236,67 @@ def create_backwall(output_dir="output", show_guides=True):
         except Exception as exc:
             print(f"⚠ Could not read logo for sizing: {exc}")
 
-    # Draw semi-transparent background behind text + logo with rounded corners
-    # This makes text readable while showing some of the smile through
-    bg_padding_h = 30 * mm  # Horizontal padding around text
-    bg_padding_top = 35 * mm  # Smaller padding above "AI ROLEPLAY"
-    bg_padding_bottom = 60 * mm  # Bigger padding below "FOR SALES TEAMS" to accommodate logo
-    logo_gap = 60 * mm  # Extra space to push logo down
-
+    # Calculate box dimensions
     bg_x = headline_center_x - (max_text_width / 2) - bg_padding_h
     bg_y = first_baseline - baseline_gap - (descent * headline_font_size / 1000) - bg_padding_bottom - logo_height - logo_gap
     bg_width = max_text_width + (2 * bg_padding_h)
     bg_height = line_height + baseline_gap + bg_padding_top + bg_padding_bottom + logo_height + logo_gap
     bg_radius = 40 * mm  # Rounded corner radius
+
+    # Eyes image - RENDER FIRST so it's underneath the text box
+    # FULL WIDTH with vignette fade, positioned below box with slight overlap
+    if os.path.exists(EYES_IMAGE_PATH):
+        try:
+            # Create image with vignette fade similar to the face image
+            # Strong top fade to blend with the box, moderate side/bottom fades
+            eyes_img = create_vignette_fade_image(EYES_IMAGE_PATH, edge_fade=0.25, bottom_fade=0.35, top_fade=0.40)
+            eyes_ratio = eyes_img.height / eyes_img.width
+
+            # FULL WIDTH - use entire trim width like the face image
+            eyes_width = graphic.trim_width
+            eyes_height = eyes_width * eyes_ratio
+
+            # Position centered horizontally
+            eyes_x = graphic.bleed
+            # Position so top of image overlaps slightly with bottom of the box
+            overlap_amount = 80 * mm  # Amount of overlap with the box
+            eyes_y = bg_y - eyes_height + overlap_amount
+
+            # Ensure we stay above the no-text zone
+            min_eyes_y = graphic.bleed + graphic.no_text_zone["height"] + graphic.safe_inset
+            if eyes_y < min_eyes_y:
+                eyes_y = min_eyes_y
+
+            # Save processed image temporarily for ReportLab
+            temp_eyes_path = os.path.join(output_dir, "_temp_eyes_fade.png")
+            eyes_img.save(temp_eyes_path)
+
+            eyes_reader = ImageReader(temp_eyes_path)
+            c.drawImage(
+                eyes_reader,
+                eyes_x,
+                eyes_y,
+                width=eyes_width,
+                height=eyes_height,
+                mask="auto",
+                preserveAspectRatio=True,
+            )
+
+            # Clean up temp file
+            try:
+                os.remove(temp_eyes_path)
+            except:
+                pass
+
+        except Exception as exc:
+            print(f"⚠ Could not render eyes image: {exc}")
+            import traceback
+            traceback.print_exc()
+    else:
+        print("⚠ Eyes image not found.")
+
+    # Draw semi-transparent background behind text + logo with rounded corners
+    # This makes text readable and renders ON TOP of the eyes image
 
     # Semi-transparent white background with rounded corners
     c.setFillColorRGB(1, 1, 1, alpha=0.88)  # 88% white for better text readability

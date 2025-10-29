@@ -50,6 +50,7 @@ BRAND_COLORS = {
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 LOGO_PATH = os.path.join(BASE_DIR, "assets", "skylar-clean-logo.png")
 FACE_IMAGE_PATH = os.path.join(BASE_DIR, "assets", "b7255f53-8368-4d30-bc18-698d6a1ac0df.png")
+EYES_IMAGE_PATH = os.path.join(BASE_DIR, "assets", "19842217-02bc-47dd-96cf-cd23d758449d.png")
 UBUNTU_BOLD_PATH = os.path.join(BASE_DIR, "assets", "fonts", "Ubuntu-Bold.ttf")
 
 
