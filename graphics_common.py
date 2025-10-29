@@ -49,6 +49,7 @@ BRAND_COLORS = {
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 LOGO_PATH = os.path.join(BASE_DIR, "assets", "skylar-clean-logo.png")
+FACE_IMAGE_PATH = os.path.join(BASE_DIR, "assets", "b7255f53-8368-4d30-bc18-698d6a1ac0df.png")
 UBUNTU_BOLD_PATH = os.path.join(BASE_DIR, "assets", "fonts", "Ubuntu-Bold.ttf")
 
 
@@ -93,12 +94,52 @@ def fit_multiline_font_size(lines, font_name, max_width, starting_size=220, mini
     return font_size
 
 
-def draw_centered_string(canvas_obj, text, font_name, font_size, center_x, baseline_y, fill_color):
-    """Draw a centred string with the given styling."""
+def create_bottom_fade_image(image_path, fade_percentage=0.35):
+    """
+    Create a version of the image with a gradient fade at the bottom
+    so it blends naturally into the background.
 
+    Args:
+        image_path: Path to source image
+        fade_percentage: What percentage of height should fade (0.0 to 1.0)
+
+    Returns:
+        PIL Image with bottom fade applied
+    """
+    img = Image.open(image_path).convert("RGBA")
+    width, height = img.size
+
+    # Create alpha gradient mask
+    mask = Image.new("L", (width, height), 255)
+
+    # Calculate fade region
+    fade_height = int(height * fade_percentage)
+    fade_start = height - fade_height
+
+    # Draw gradient in the fade region
+    for y in range(fade_start, height):
+        # Alpha goes from 255 (opaque) at fade_start to 0 (transparent) at bottom
+        alpha = int(255 * (1 - (y - fade_start) / fade_height))
+        for x in range(width):
+            mask.putpixel((x, y), alpha)
+
+    # Apply the mask to the alpha channel
+    img.putalpha(mask)
+
+    return img
+
+
+def draw_centered_string(canvas_obj, text, font_name, font_size, center_x, baseline_y, fill_color, alpha=1.0):
+    """Draw a centred string with the given styling.
+
+    Args:
+        alpha: Opacity from 0.0 (transparent) to 1.0 (opaque)
+    """
     canvas_obj.setFillColor(fill_color)
+    canvas_obj.setFillAlpha(alpha)
     canvas_obj.setFont(font_name, font_size)
     canvas_obj.drawCentredString(center_x, baseline_y, text)
+    canvas_obj.setFillAlpha(1.0)  # Reset to opaque for other elements
 
 
 def create_jpg_proof(pdf_path, output_dir, jpg_filename, max_width=1200):

@@ -58,7 +58,7 @@ BRAND_COLORS = {
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 LOGO_PATH = os.path.join(BASE_DIR, "assets", "skylar-clean-logo.png")
-EYES_IMAGE_PATH = os.path.join(BASE_DIR, "assets", "b7255f53-8368-4d30-bc18-698d6a1ac0df.png")
+EYES_IMAGE_PATH = os.path.join(BASE_DIR, "assets", "8f686ed8-df57-4a5c-8b7e-1ad42ded5b90.png")
 UBUNTU_BOLD_PATH = os.path.join(BASE_DIR, "assets", "fonts", "Ubuntu-Bold.ttf")
 
 
@@ -103,12 +103,17 @@ def fit_multiline_font_size(lines, font_name, max_width, starting_size=220, mini
     return font_size
 
 
-def draw_centered_string(canvas_obj, text, font_name, font_size, center_x, baseline_y, fill_color):
-    """Draw a centred string with the given styling."""
+def draw_centered_string(canvas_obj, text, font_name, font_size, center_x, baseline_y, fill_color, alpha=1.0):
+    """Draw a centred string with the given styling.
 
+    Args:
+        alpha: Opacity from 0.0 (transparent) to 1.0 (opaque)
+    """
     canvas_obj.setFillColor(fill_color)
+    canvas_obj.setFillAlpha(alpha)
     canvas_obj.setFont(font_name, font_size)
     canvas_obj.drawCentredString(center_x, baseline_y, text)
+    canvas_obj.setFillAlpha(1.0)  # Reset to opaque for other elements
 
 
 
@@ -494,7 +499,8 @@ def create_sample_backwall(output_dir="output", show_guides=True):
         minimum_size=100
     )
 
-    # Position at eye level (140cm = 1400mm)
+    # Position so only top half of "AI ROLEPLAY" overlaps with smile
+    # "FOR SALES TEAMS" should be completely below the image
     headline_center_x = graphic.doc_width / 2
 
     # Calculate line spacing
@@ -502,28 +508,48 @@ def create_sample_backwall(output_dir="output", show_guides=True):
     line_height = ascent - descent
     baseline_gap = line_height * 1.15  # Tight spacing
 
-    # Center the two-line block at 1400mm
-    block_center_y = graphic.bleed + (1400 * mm)
-    first_baseline = block_center_y + (baseline_gap / 2)
+    # Position at ~154cm so only bottom portion of first line overlaps with smile
+    first_baseline = graphic.bleed + (1540 * mm)
 
     # Ensure we're above no-text zone
     min_y = graphic.bleed + graphic.no_text_zone["height"] + (150 * mm)
     if first_baseline - line_height < min_y:
         first_baseline = min_y + line_height
 
+    # Calculate text width for background
+    text_width_line1 = pdfmetrics.stringWidth(line1, headline_font, headline_font_size)
+    text_width_line2 = pdfmetrics.stringWidth(line2, headline_font, headline_font_size)
+    max_text_width = max(text_width_line1, text_width_line2)
+
+    # Draw semi-transparent background behind text with rounded corners
+    # This makes text readable while showing some of the smile through
+    bg_padding_h = 30 * mm  # Horizontal padding around text
+    bg_padding_v = 45 * mm  # Vertical padding for more space between lines
+    bg_x = headline_center_x - (max_text_width / 2) - bg_padding_h
+    bg_y = first_baseline - baseline_gap - (descent * headline_font_size / 1000) - bg_padding_v
+    bg_width = max_text_width + (2 * bg_padding_h)
+    bg_height = line_height + baseline_gap + (2 * bg_padding_v)
+    bg_radius = 40 * mm  # Rounded corner radius
+
+    # Semi-transparent white background with rounded corners
+    c.setFillColorRGB(1, 1, 1, alpha=0.88)  # 88% white for better text readability
+    c.roundRect(bg_x, bg_y, bg_width, bg_height, bg_radius, fill=1, stroke=0)
+
     # Draw text with solid dark color for maximum contrast
     text_color = BRAND_COLORS["headline_text"]  # Dark navy
 
-    # Line 1
+    # Line 1 - "AI ROLEPLAY" (solid, no transparency on text itself)
     draw_centered_string(
         c, line1, headline_font, headline_font_size,
-        headline_center_x, first_baseline, text_color
+        headline_center_x, first_baseline, text_color,
+        alpha=1.0  # Fully opaque text
     )
 
-    # Line 2
+    # Line 2 - "FOR SALES TEAMS" (solid, no transparency on text itself)
     draw_centered_string(
         c, line2, headline_font, headline_font_size,
-        headline_center_x, first_baseline - baseline_gap, text_color
+        headline_center_x, first_baseline - baseline_gap, text_color,
+        alpha=1.0  # Fully opaque text
     )
 
     # Logo - prominent and visible (below text, 100cm = 1000mm)
