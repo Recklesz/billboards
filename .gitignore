@@ -21,3 +21,5 @@ ENV/
 
 # Generated output files
 output/
+*.tif
+*.tiff
