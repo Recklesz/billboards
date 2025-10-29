@@ -7,9 +7,10 @@ from reportlab.lib.utils import ImageReader
 from reportlab.lib import colors
 from reportlab.lib.units import mm
 from reportlab.pdfbase import pdfmetrics
-from PIL import Image
+from PIL import Image, ImageDraw, ImageChops
 import os
 import json
+import tempfile
 
 from graphics_common import (
     SPECS,
@@ -258,14 +259,22 @@ def create_backwall(output_dir="output", show_guides=True):
 
             # Position centered horizontally
             eyes_x = graphic.bleed
-            # Position so top of image overlaps slightly with bottom of the box
-            overlap_amount = 80 * mm  # Amount of overlap with the box
-            eyes_y = bg_y - eyes_height + overlap_amount
+            # Position much lower below the box with minimal overlap
+            overlap_amount = 80 * mm  # Positive value increases overlap (moves image up)
+            eyes_y_calculated = bg_y - eyes_height + overlap_amount
 
-            # Ensure we stay above the no-text zone
-            min_eyes_y = graphic.bleed + graphic.no_text_zone["height"] + graphic.safe_inset
-            if eyes_y < min_eyes_y:
-                eyes_y = min_eyes_y
+            # Allow the eyes image to position freely based on overlap_amount
+            # The vignette fade will handle visual blending, no hard constraint needed
+            eyes_y = eyes_y_calculated
+            
+            # DEBUG: Print positioning info
+            print(f"\n🔍 Eyes Image Positioning Debug:")
+            print(f"   bg_y (box bottom): {bg_y / mm:.1f} mm")
+            print(f"   eyes_height: {eyes_height / mm:.1f} mm")
+            print(f"   overlap_amount: {overlap_amount / mm:.1f} mm")
+            print(f"   eyes_y (final): {eyes_y / mm:.1f} mm")
+            print(f"   no-text zone top: {(graphic.bleed + graphic.no_text_zone['height']) / mm:.1f} mm")
+            print(f"   eyes image extends from {eyes_y / mm:.1f} to {(eyes_y + eyes_height) / mm:.1f} mm\n")
 
             # Save processed image temporarily for ReportLab
             temp_eyes_path = os.path.join(output_dir, "_temp_eyes_fade.png")
@@ -297,10 +306,51 @@ def create_backwall(output_dir="output", show_guides=True):
 
     # Draw semi-transparent background behind text + logo with rounded corners
     # This makes text readable and renders ON TOP of the eyes image
+    # Create gradient transparency: more opaque at top (for text), more transparent at bottom (for blend)
 
-    # Semi-transparent white background with rounded corners
-    c.setFillColorRGB(1, 1, 1, alpha=0.88)  # 88% white for better text readability
-    c.roundRect(bg_x, bg_y, bg_width, bg_height, bg_radius, fill=1, stroke=0)
+    # Create the rounded rectangle with gradient alpha as a PIL image
+    # Convert dimensions to pixels for PIL (using 150 DPI)
+    dpi = 150
+    box_width_px = int((bg_width / mm) * (dpi / 25.4))
+    box_height_px = int((bg_height / mm) * (dpi / 25.4))
+    box_radius_px = int((bg_radius / mm) * (dpi / 25.4))
+    
+    # Create RGBA image for the box
+    box_img = Image.new("RGBA", (box_width_px, box_height_px), (255, 255, 255, 0))
+    draw = ImageDraw.Draw(box_img)
+    
+    # Draw rounded rectangle with gradient alpha
+    for y in range(box_height_px):
+        # Calculate alpha: more opaque at top (0.95), fade to more transparent at bottom (0.70)
+        # y=0 is top, y=box_height_px-1 is bottom
+        t = y / box_height_px  # 0 at top, 1 at bottom
+        alpha = int(255 * (0.95 - (t * 0.25)))  # 95% at top, 70% at bottom
+        
+        # Draw horizontal line with this alpha
+        line_color = (255, 255, 255, alpha)
+        draw.rectangle([0, y, box_width_px, y], fill=line_color)
+    
+    # Create a mask for rounded corners
+    mask = Image.new("L", (box_width_px, box_height_px), 0)
+    mask_draw = ImageDraw.Draw(mask)
+    mask_draw.rounded_rectangle([0, 0, box_width_px, box_height_px], radius=box_radius_px, fill=255)
+    
+    # Apply rounded corner mask to the gradient box
+    box_img.putalpha(ImageChops.multiply(box_img.split()[3], mask))
+    
+    # Save temporarily and draw on canvas
+    with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
+        tmp_box_path = tmp.name
+        box_img.save(tmp_box_path)
+    
+    try:
+        box_reader = ImageReader(tmp_box_path)
+        c.drawImage(box_reader, bg_x, bg_y, width=bg_width, height=bg_height, mask="auto")
+    finally:
+        try:
+            os.remove(tmp_box_path)
+        except:
+            pass
 
     # Draw text with solid dark color for maximum contrast
     text_color = BRAND_COLORS["headline_text"]  # Dark navy
