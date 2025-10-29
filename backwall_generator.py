@@ -189,10 +189,10 @@ def create_backwall(output_dir="output", show_guides=True):
     # Calculate line spacing
     ascent, descent = pdfmetrics.getAscentDescent(headline_font, headline_font_size)
     line_height = ascent - descent
-    baseline_gap = line_height * 1.15  # Tight spacing
+    baseline_gap = line_height * 1.60  # Significantly increased spacing between lines
 
-    # Position at ~154cm so only bottom portion of first line overlaps with smile
-    first_baseline = graphic.bleed + (1540 * mm)
+    # Position at ~148cm so only bottom portion of first line overlaps with smile
+    first_baseline = graphic.bleed + (1520 * mm)
 
     # Ensure we're above no-text zone
     min_y = graphic.bleed + graphic.no_text_zone["height"] + (150 * mm)
@@ -204,14 +204,39 @@ def create_backwall(output_dir="output", show_guides=True):
     text_width_line2 = pdfmetrics.stringWidth(line2, headline_font, headline_font_size)
     max_text_width = max(text_width_line1, text_width_line2)
 
-    # Draw semi-transparent background behind text with rounded corners
+    # Load logo dimensions to include in box calculation
+    logo_width = 0
+    logo_height = 0
+    logo_ratio = 1
+    if os.path.exists(LOGO_PATH):
+        try:
+            with Image.open(LOGO_PATH) as logo_img:
+                logo_ratio = logo_img.height / logo_img.width
+                # Logo size inside the box
+                max_logo_width = safe_width * 0.20  # Slightly smaller for inside box
+                max_logo_height = safe_height * 0.08
+                computed_logo_height = max_logo_width * logo_ratio
+
+                if computed_logo_height > max_logo_height:
+                    computed_logo_height = max_logo_height
+                    max_logo_width = computed_logo_height / logo_ratio
+
+                logo_width = max_logo_width
+                logo_height = computed_logo_height
+        except Exception as exc:
+            print(f"⚠ Could not read logo for sizing: {exc}")
+
+    # Draw semi-transparent background behind text + logo with rounded corners
     # This makes text readable while showing some of the smile through
     bg_padding_h = 30 * mm  # Horizontal padding around text
-    bg_padding_v = 45 * mm  # Vertical padding for more space between lines
+    bg_padding_top = 35 * mm  # Smaller padding above "AI ROLEPLAY"
+    bg_padding_bottom = 60 * mm  # Bigger padding below "FOR SALES TEAMS" to accommodate logo
+    logo_gap = 60 * mm  # Extra space to push logo down
+
     bg_x = headline_center_x - (max_text_width / 2) - bg_padding_h
-    bg_y = first_baseline - baseline_gap - (descent * headline_font_size / 1000) - bg_padding_v
+    bg_y = first_baseline - baseline_gap - (descent * headline_font_size / 1000) - bg_padding_bottom - logo_height - logo_gap
     bg_width = max_text_width + (2 * bg_padding_h)
-    bg_height = line_height + baseline_gap + (2 * bg_padding_v)
+    bg_height = line_height + baseline_gap + bg_padding_top + bg_padding_bottom + logo_height + logo_gap
     bg_radius = 40 * mm  # Rounded corner radius
 
     # Semi-transparent white background with rounded corners
@@ -235,37 +260,27 @@ def create_backwall(output_dir="output", show_guides=True):
         alpha=1.0  # Fully opaque text
     )
 
-    # Logo - prominent and visible (below text, centered at 100cm)
-    if os.path.exists(LOGO_PATH):
+    # Logo - inside the box, below "FOR SALES TEAMS"
+    if os.path.exists(LOGO_PATH) and logo_width > 0:
         try:
-            with Image.open(LOGO_PATH) as logo_img:
-                logo_ratio = logo_img.height / logo_img.width
-
-            # Make logo bigger and more visible
-            max_logo_width = safe_width * 0.25
-            max_logo_height = safe_height * 0.10
-            computed_logo_height = max_logo_width * logo_ratio
-
-            if computed_logo_height > max_logo_height:
-                computed_logo_height = max_logo_height
-                max_logo_width = computed_logo_height / logo_ratio
-
             logo_reader = ImageReader(LOGO_PATH)
-            logo_x = (graphic.doc_width - max_logo_width) / 2
-            logo_y = graphic.bleed + (1000 * mm)
+            logo_x = (graphic.doc_width - logo_width) / 2
+            # Position logo below second line with gap
+            logo_y = first_baseline - baseline_gap - (descent * headline_font_size / 1000) - logo_gap - logo_height
 
+            # Draw logo
             c.drawImage(
                 logo_reader,
                 logo_x,
                 logo_y,
-                width=max_logo_width,
-                height=computed_logo_height,
+                width=logo_width,
+                height=logo_height,
                 mask="auto",
                 preserveAspectRatio=True,
             )
         except Exception as exc:
-            print(f"⚠ Could not read logo: {exc}")
-    else:
+            print(f"⚠ Could not render logo: {exc}")
+    elif not os.path.exists(LOGO_PATH):
         print("⚠ Logo not found.")
 
     graphic.save()
