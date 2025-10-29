@@ -159,6 +159,7 @@ def create_backwall(output_dir="output", show_guides=True):
                 face_y,
                 width=face_width,
                 height=face_height,
+                mask="auto",
                 preserveAspectRatio=True,
             )
 
