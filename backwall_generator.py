@@ -21,7 +21,8 @@ from graphics_common import (
     fit_multiline_font_size,
     draw_centered_string,
     create_jpg_proof,
-    create_bottom_fade_image
+    create_bottom_fade_image,
+    create_vignette_fade_image
 )
 
 
@@ -127,11 +128,11 @@ def create_backwall(output_dir="output", show_guides=True):
     graphic.draw_guides(show_guides)
     graphic.draw_no_text_zone_guide(show_guides)
 
-    # Face image - FULL WIDTH with bottom fade
+    # Face image - FULL WIDTH with premium vignette fade
     if os.path.exists(FACE_IMAGE_PATH):
         try:
-            # Create image with bottom fade for natural blending
-            face_img = create_bottom_fade_image(FACE_IMAGE_PATH, fade_percentage=0.35)
+            # Create image with sophisticated vignette for high-end blending
+            face_img = create_vignette_fade_image(FACE_IMAGE_PATH, edge_fade=0.25, bottom_fade=0.45)
             face_ratio = face_img.height / face_img.width
 
             # FULL WIDTH - use entire trim width

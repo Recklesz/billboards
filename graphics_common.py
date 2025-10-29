@@ -129,6 +129,71 @@ def create_bottom_fade_image(image_path, fade_percentage=0.35):
     return img
 
 
+def create_vignette_fade_image(image_path, edge_fade=0.25, bottom_fade=0.45):
+    """
+    Create a high-end vignette effect with smooth edge fading for premium blending.
+
+    Uses radial distance from edges with cubic easing for a sophisticated,
+    magazine-quality fade that integrates naturally with gradient backgrounds.
+
+    Args:
+        image_path: Path to source image
+        edge_fade: Percentage of width/height to fade on sides/top (0.0 to 1.0)
+        bottom_fade: Percentage of height to fade on bottom (0.0 to 1.0)
+
+    Returns:
+        PIL Image with vignette fade applied
+    """
+    img = Image.open(image_path).convert("RGBA")
+    width, height = img.size
+
+    # Create alpha mask
+    mask = Image.new("L", (width, height), 255)
+
+    # Calculate fade distances
+    edge_fade_dist = int(min(width, height) * edge_fade)
+    bottom_fade_dist = int(height * bottom_fade)
+
+    # Apply vignette with smooth cubic easing
+    for y in range(height):
+        for x in range(width):
+            # Calculate distance from each edge
+            dist_left = x
+            dist_right = width - x - 1
+            dist_top = height - y - 1
+            dist_bottom = y
+
+            # Start with full opacity
+            alpha = 1.0
+
+            # Apply side fades (left and right) with cubic easing
+            if dist_left < edge_fade_dist:
+                t = dist_left / edge_fade_dist
+                alpha *= t * t * (3 - 2 * t)  # Smoothstep easing
+            if dist_right < edge_fade_dist:
+                t = dist_right / edge_fade_dist
+                alpha *= t * t * (3 - 2 * t)
+
+            # Apply top fade with cubic easing
+            if dist_top < edge_fade_dist:
+                t = dist_top / edge_fade_dist
+                alpha *= t * t * (3 - 2 * t)
+
+            # Apply stronger bottom fade (most important for this design)
+            if dist_bottom < bottom_fade_dist:
+                t = dist_bottom / bottom_fade_dist
+                # Cubic easing for ultra-smooth transition
+                alpha *= t * t * t
+
+            # Apply to mask
+            mask.putpixel((x, y), int(255 * alpha))
+
+    # Apply the mask to the alpha channel
+    img.putalpha(mask)
+
+    return img
+
+
 def draw_centered_string(canvas_obj, text, font_name, font_size, center_x, baseline_y, fill_color, alpha=1.0):
     """Draw a centred string with the given styling.
 

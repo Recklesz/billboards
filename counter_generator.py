@@ -152,19 +152,6 @@ def create_counter(output_dir="output", show_guides=True):
     # Add guides
     graphic.draw_guides(show_guides)
 
-    # Add website URL at the top with Ubuntu Bold
-    headline_font = get_headline_font_name()
-    c.setFillColor(BRAND_COLORS["headline_text"])
-    
-    # Website URL at the top - bigger and prominent
-    website_text = "callskylar.com"
-    website_font_size = 42
-    c.setFont(headline_font, website_font_size)
-    website_width = c.stringWidth(website_text, headline_font, website_font_size)
-    website_x = (graphic.doc_width - website_width) / 2
-    website_y = graphic.bleed + (680 * mm)  # Position at top
-    c.drawString(website_x, website_y, website_text)
-
     # Generate QR code
     qr_url = "https://www.getskylar.com/conference"
     qr_path = generate_qr_code(qr_url, output_dir)
@@ -174,8 +161,8 @@ def create_counter(output_dir="output", show_guides=True):
         qr_size = safe_width * 0.65  # 65% of safe width for visual impact
         qr_x = (graphic.doc_width - qr_size) / 2  # Center horizontally
         
-        # Position QR code below website URL
-        qr_y = website_y - (120 * mm)  # Position below website URL
+        # Position QR code in upper-middle area
+        qr_y = graphic.bleed + (480 * mm)  # Position in upper portion
 
         # Create elegant rounded container for QR code
         container_padding = 25 * mm
@@ -243,17 +230,18 @@ def create_counter(output_dir="output", show_guides=True):
     else:
         print("⚠ Logo not found.")
 
-    # Add elegant call-to-action text below QR code with Ubuntu Bold
+    # Add website URL below QR code with Ubuntu Bold
+    headline_font = get_headline_font_name()
     c.setFillColor(BRAND_COLORS["headline_text"])
     
-    # Main CTA text
-    cta_text = "Scan to Learn More"
-    cta_font_size = 32
-    c.setFont(headline_font, cta_font_size)
-    text_width = c.stringWidth(cta_text, headline_font, cta_font_size)
+    # Website URL text
+    website_text = "CallSkylar.com"
+    website_font_size = 42
+    c.setFont(headline_font, website_font_size)
+    text_width = c.stringWidth(website_text, headline_font, website_font_size)
     text_x = (graphic.doc_width - text_width) / 2
     text_y = qr_y - (55 * mm)  # Position below QR container
-    c.drawString(text_x, text_y, cta_text)
+    c.drawString(text_x, text_y, website_text)
 
     graphic.save()
     print(f"✓ Created: {filename}")
